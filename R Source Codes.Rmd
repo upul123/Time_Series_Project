@@ -1,0 +1,392 @@
+---
+title: "R Sourse Codes: Analysis of the Stationarity and Correlation of the Global Temperature and Carbon Dioxide Time Series"
+author: "Upul Rupassara"
+date: "2023-04-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+### NOTE: WHEN RUNING THE CODES, REMOVE THE "#" IN FRONT OF "INSTALL.PACKAGES()". 
+
+
+# Install Packages
+```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+```
+
+```{r}
+#install.packages("astsa")
+library(astsa)
+```
+
+
+###Transforming data into time series data
+
+```{r}
+
+
+#install.packages("xts")
+library(xts)
+
+```
+
+### Transforming the data into timeseries format
+
+```{r}
+
+tc = read.csv("tc.csv")
+x = tc$temperature
+y = tc$co2
+z = tc$ca
+
+temp = ts(x, frequency = 1, start = 1960, end = 2022) 
+co2 = ts(y, frequency = 1, start = 1960, end = 2022)
+ca = ts(z, frequency = 1, start = 1960, end = 2022)
+
+
+par(mfrow = c(3,1))
+par(mar=c(2, 2, 2, 2), mfrow=c(2,1),oma = c(1, 1, 1, 1))
+par(adj = 0)
+
+```
+
+
+# Model 1:
+```{r}
+# Temperature
+model1 = lm(temp ~ time(temp), na.action = NULL)
+model1
+summary(model1)
+
+```
+## AIC for Model 1:
+```{r}
+# Temperature
+AIC(model1)/nrow(tc) - log(2*pi)
+```
+## BIC for Model 1
+```{r}
+# Temperature
+BIC(model1)/nrow(tc) - log(2*pi)
+```
+## SSE for Model 1
+```{r}
+# Temperature
+sum(resid(model1)^2)
+```
+### AIC with formula, model 1
+```{r}
+k = 2
+log(sum(resid(model1)^2)/nrow(tc)) + (nrow(tc)+(2*k))/(nrow(tc)) 
+```
+
+```{r}
+nrow(tc)
+```
+
+### MSEfor model 1 using summary of the model 1
+```{r}
+mean(summary(model1)$residuals^2)
+```
+```{r}
+summary(model1)$df
+```
+```{r}
+sum(summary(model1)$residual^2)
+```
+### MSE model 1
+```{r}
+sum(summary(model1)$residual^2)/61
+```
+### AICc with formula, model 1
+```{r}
+k = 2
+log(sum(resid(model1)^2)/nrow(tc)) + (nrow(tc)+k)/(nrow(tc)-k-2) 
+```
+
+### BIC with formula, model 1
+
+```{r}
+k = 2
+log(sum(resid(model1)^2)/nrow(tc)) + k*log(nrow(tc))/(nrow(tc)) 
+```
+# Model 2
+```{r}
+
+# Temp dependent on CO2
+
+cc = mean(co2)
+C = co2 - cc
+model2 = lm(temp ~ time(temp) + C)
+model2
+summary(model2)
+```
+
+```{r}
+sum(summary(model2)$residual^2)
+```
+### CALCULATION (F-STATISTICS)
+```{r}
+(0.632 - 0.495)/(0.495/60)
+qf(0.001, 1, 60, lower.tail = FALSE)
+```
+### AIC with formula, model 2
+```{r}
+k = 3
+log(sum(resid(model2)^2)/nrow(tc)) + (nrow(tc)+2*k)/(nrow(tc)) 
+```
+### AIC (ALTERNATIVE METHOD)
+```{r}
+AIC(model2)/nrow(tc) - log(2*pi)
+```
+### AICc with formula, model 2
+```{r}
+k = 3
+log(sum(resid(model2)^2)/nrow(tc)) + (nrow(tc)+k)/(nrow(tc)-k-2) 
+```
+
+### BIC with formula, model 2
+```{r}
+k = 3
+r=  (resid(model2))^2
+log(sum(r)/nrow(tc)) + k*log(nrow(tc))/(nrow(tc)) 
+```
+
+```{r}
+(BIC(model2))/nrow(tc) - log(2*pi)
+```
+### Smoothing splines for temprature
+### SOURCE CODES FOR FIGURE 2
+
+```{r}
+
+#png("fig02.png", width = 12, height = 10, units = 'cm', res = 300)
+plot(x = tc$Year, y = tc$temperature, type = "o", xlab = "Year", ylab = "Temperature Anomaly")
+
+lines(smooth.spline(time(temp), temp, spar = 0.5), lwd = 2, col = 4)
+abline(model1, col = 2, lty = "dashed", lwd = 1.75)
+legend(1960, 1, legend=c("Smoothing Splines", "Trend"),
+       col=c("blue", "red"), lty=1:2, cex=0.8)
+
+```
+
+### Durbin-Watson test (Optional)
+```{r}
+library(lmtest)
+dwtest(formula = model1,  alternative = "two.sided")
+```
+### Temperature Detrended and differenced
+
+### SOURCE CODES FOR FIGURE 3
+
+```{r}
+
+#png("fig03.png", width = 12, height = 12, units = 'cm', res = 300)
+par(mfrow = c(2,1))
+par(mar=c(2, 2, 2, 2), mfrow=c(2,1),oma = c(1, 1, 1, 1)) #margin a nd outer margin
+par(adj = 0) #shift the title to left
+
+plot(resid(model1), type = "o", main = expression(a.~Detrended~temperature~series), pch = 19, cex = 0.5, col = 4)
+
+abline(h = 0, lty = 2, col = "gray")
+plot(diff(temp), type = "o", main = expression(b.~Differenced~temperature~series), pch = 19, cex =0.5, col = 2)
+abline(h = 0, lty = 2, col = "gray")
+```
+
+### ACF plots
+### SOURCE CODES FOR FIGURE 4
+
+```{r}
+#png("fig04.png", width = 16, height = 12, units = 'cm', res = 300)
+par(mar=c(3, 3, 3, 3), mfrow=c(3,1),oma = c(1, 1, 1, 1)) #margin a nd outer margin
+par(adj = 0) #shift the title to left
+acf(temp, 10, main = "a. ACF vs Lag: temperature anomaly", col = 6, lwd = 2)
+acf(resid(model1),10, main = "b. ACF vs Lag: detrended temperature series", col = 2, lwd = 2)
+acf(diff(temp), 10,main = "c. ACF vs Lag: differenced temperature series", col = 3, lwd = 2)
+```
+
+### CO2 time series ACF plots
+
+```{r}
+modelc = lm(co2~time(co2), na.action = NULL)
+summary(modelc)
+```
+
+
+### Smoothing Splines for Carbon dioxide
+
+### SOURCE CODES FOR FIGURE 5
+
+```{r}
+
+#png("fig05.png", width = 12, height = 10, units = 'cm', res = 300)
+plot(x = tc$Year, y = tc$co2, type = "o", xlab = "Year", ylab = "Carbon Dioxide")
+lines(smooth.spline(time(co2), co2, spar = 0.5), lwd = 2, col = 4)
+abline(modelc, col = 2, lty = "dashed", lwd = 1.75)
+legend(1960, 420, legend=c("Smoothing Splines", "Trend"), col=c("blue", "red"), lty=1:2, cex=0.8)
+
+```
+
+### CO2 
+### SOURCE CODES FOR FIGURE 6
+
+```{r}
+
+#png("fig06.png", width = 12, height = 12,  units = 'cm', res = 300)
+par(mar=c(2, 2, 2, 2), mfrow=c(3,1),oma = c(1, 1, 1, 1))
+par(adj = 0)
+
+modelc = lm(co2~time(co2), na.action = NULL)
+
+
+#mat_layout<- matrix(c(1,0,2,0), ncol = 2)
+#layout(mat_layout)
+
+plot(resid(modelc), main = "a. CO2 detrended series", type = "o", pch = 19, col = 4)
+
+
+#grid(nx = NULL, ny = NULL,lty = 2, col = "gray", lwd = 2)
+abline(h = 0, lty = 2, col = "gray")
+plot(diff(co2), main = "b. CO2 differenced series (d = 1)", type = "o",  pch = 19, col = 2)
+abline(h = 0, lty = 2, col = "gray")
+plot(diff(diff(co2)), type = "o", main = "c. CO2 differenced series (d = 2)", pch = 19, col = 3)
+abline(h = 0, lty = 2, col = "gray")
+
+```
+
+
+
+### SOURCE CODES FOR FIGURE 7
+
+```{r}
+#png("fig07.png", width = 16, height = 12, units = 'cm', res = 300)
+
+par(mar=c(3, 3, 3, 3), mfrow=c(3,1),oma = c(1, 1, 1, 1)) #margin a nd outer margin
+par(adj = 0) #shift the title to left
+acf(tc$co2, 10, main = "a. ACF vs Lag: CO2 series", col = "6", lwd = 2)
+acf(resid(modelc),10, main = "b. ACF vs Lag: CO2 detrended series", col = 2, lwd = 2 )
+acf(diff(tc$co2), 10, main = "c. ACF vs Lag: CO2 differenced series", col = 2, lwd = 2)
+
+```
+
+### REFERENCE FOR ADJUSTING GAP###
+https://stackoverflow.com/questions/15848942/how-to-reduce-space-gap-between-multiple-graphs-in-r
+
+
+### DW test for CO2 (OPTIONAL)
+```{r}
+dwtest(formula = modelc,  alternative = "two.sided")
+```
+
+### DW test for Temperature (OPTIONAL)
+```{r}
+dwtest(formula = model1,  alternative = "two.sided")
+```
+According to the ACF plots detrended series represents the stationary behavior than the differenced series.
+
+### Lag plot
+
+`DW test
+
+H0: residuals are independent
+H1: Residuals are not independent
+
+```{r}
+dwtest(formula = model1, alternative = "two.sided")
+```
+
+```{r}
+dwtest(model2, alternative = "two.sided")
+```
+
+According to the Durbin-Watson test the second model follows the assumptions than th first model. The assumption of residuals are independent.
+### ACF for CO2 second differenced series
+
+### SOURCE CODES FOR FIGURE 8
+
+
+```{r}
+#png("fig08.png", width = 12, height = 8, units = 'cm', res = 300)
+#par(mfrow = c(1,2))
+#acf(diff(tc$co2), 10, main = "c. ACF vs Lag: CO2 differenced series", col = 2, lwd = 2)
+acf(diff(diff(tc$co2)), 10, main = " ", col = 2, lwd = 2, xlab = " ")
+```
+### SOURCE CODES FOR FIGURE 9
+
+```{r}
+#png("fig09.png", width = 12, height = 10, units = 'cm', res = 300)
+lag= tc$co2
+lag1.plot(lag, 4, col = 4)
+mean(tc$co2)
+
+
+```
+
+
+### Lag Regression
+
+We need the following package to align the time series before making the model.
+
+```{r}
+#install.packages("dynlm")
+library(dynlm)
+```
+
+
+
+```{r}
+dwtest(model1, alternative = "two.sided")
+```
+
+### SOURCE CODES FOR FIGURE 10
+```{r}
+#png("fig10.png", width = 12, height = 10, units = 'cm', res = 300)
+par(mfrow = c(2, 2))
+plot(model2, col = 4)
+```
+
+### Cross  correlation
+
+### SOURCE CODES FOR FIGURE 11
+
+```{r}
+#png("fig11.png", width = 14, height = 8, units = 'cm', res = 300)
+x = co2
+y = lag(x,-1) + temp
+ccf(y,x, ylab = "Cross-correlation", type = "correlation", col = 4, lwd = 2, main = " ")
+grid(NA, 5, lwd = 2) # grid only in y-direction
+abline(v = 0, col = 2, lty = 2, lwd = 3)
+legend(-15, 1, expression(Temperature~leads), cex=0.6)
+legend(10, 1, expression(CO2~leads), cex=0.6)
+```
+
+```{r}
+bgtest(model1, order = 1)
+```
+
+
+```{r}
+#install.packages("tseries")
+library(tseries)
+```
+### Dicky Fuller test (OPTIONAL)
+
+### REFERENCE
+https://atsa-es.github.io/atsa-labs/sec-boxjenkins-aug-dickey-fuller.html
+
+
+```{r}
+#install.packages("urca")
+library(urca)
+```
+
+```{r}
+library(urca)
+s= ur.df(temp, type = "trend")
+s
+summary(s)
+```
+
